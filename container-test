@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+project_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+default_image="partner-kmod-dnf-tests:rhel9"
+
+usage() {
+    cat <<'EOF'
+Usage:
+  ./container-test build [--image IMAGE] [--base IMAGE] [--docker]
+  ./container-test run   [--image IMAGE] [--docker] FEATURE [behave arguments...]
+  ./container-test shell [--image IMAGE] [--docker]
+
+The default base is CentOS Stream 9. To exercise the suite in a subscribed RHEL 9 image:
+  ./container-test build --base registry.redhat.io/rhel9/rhel:latest
+EOF
+}
+
+engine=""
+image="$default_image"
+base=""
+command=""
+feature=""
+
+if [[ $# -eq 0 ]]; then
+    usage >&2
+    exit 2
+fi
+
+command=$1
+shift
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --image)
+            image=$2
+            shift 2
+            ;;
+        --base)
+            base=$2
+            shift 2
+            ;;
+        --docker)
+            engine=docker
+            shift
+            ;;
+        --)
+            shift
+            break
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
+if [[ -z $engine ]]; then
+    if command -v podman >/dev/null 2>&1; then
+        engine=podman
+    elif command -v docker >/dev/null 2>&1; then
+        engine=docker
+    else
+        echo "Neither podman nor docker is available." >&2
+        exit 1
+    fi
+fi
+
+case $command in
+    build)
+        build_args=(build --tag "$image" --file "$project_dir/container/Dockerfile.rhel")
+        if [[ -n $base ]]; then
+            build_args+=(--build-arg "BASE=$base")
+        fi
+        "$engine" "${build_args[@]}" "$project_dir"
+        ;;
+    run)
+        if [[ -n $base ]]; then
+            echo "--base is valid only with the build command." >&2
+            exit 2
+        fi
+        if [[ $# -eq 0 ]]; then
+            echo "run requires a feature path." >&2
+            usage >&2
+            exit 2
+        fi
+        feature=$1
+        shift
+        set -- "$@" "$feature"
+        "$engine" run --rm --network none --cap-add SYS_CHROOT "$image" -lc \
+            './scripts/build-fixtures.sh && behave "$@"' \
+            container-test "$@"
+        ;;
+    shell)
+        if [[ -n $base ]]; then
+            echo "--base is valid only with the build command." >&2
+            exit 2
+        fi
+        "$engine" run --rm -it --network none --cap-add SYS_CHROOT "$image"
+        ;;
+    *)
+        usage >&2
+        exit 2
+        ;;
+esac

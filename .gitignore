@@ -1,0 +1,3 @@
+fixtures/repos/
+__pycache__/
+dnf/**/__pycache__/
