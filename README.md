@@ -88,12 +88,11 @@ Requires: kernel-modules = 1.0-40
 
 ### Approach
 
-The partner module requires a supported kernel range, for example
-`kernel-uname-r >= 1.0-40` and `kernel-uname-r < 1.1-0`.
+The partner module requires a supported kernel range. The `with` operator
+ensures both bounds match the same `kernel-core` provider.
 
 ```spec
-Requires: kernel-uname-r >= 1.0-40.x86_64
-Requires: kernel-uname-r < 1.1-0.x86_64
+Requires: (kernel-uname-r >= 1.0-40.x86_64 with kernel-uname-r < 1.1-0.x86_64)
 ```
 
 ### Pros
@@ -111,6 +110,39 @@ Requires: kernel-uname-r < 1.1-0.x86_64
   unsupported 1.1 install-only kernel. The feature intentionally fails to
   expose this.
 
+## Model: kernel-modules range Requires
+
+```console
+./container-test run dnf/kernel_range_requires_with_modules.feature
+```
+
+### Approach
+
+The partner module requires a `kernel-modules-uname-r` capability in the
+supported range. The `kernel-modules` provider requires its matching
+`kernel-core` in the fixtures, so one dependency selects a complete pair.
+The `with` operator binds both bounds to the same provider.
+
+```spec
+Requires: (kernel-modules-uname-r >= 1.0-40.x86_64 with kernel-modules-uname-r < 1.1-0.x86_64)
+```
+
+### Pros
+
+- The `.41` kernel and its modules satisfy the `.40` partner module during a
+  normal upgrade; no additional `.40` core is needed.
+- A module-only install pulls a supported `kernel-modules` package, which in
+  these fixtures requires its matching `kernel-core`. This closes the partial
+  core gap of the plain range model.
+
+### Gaps
+
+- An installed supported kernel set still satisfies the partner dependencies
+  after DNF adds an unsupported `1.1` install-only kernel. That scenario
+  intentionally fails; the new kernel could become the default boot entry.
+- Package dependencies do not establish that the `.40` module works on `.41`
+  or create the necessary weak-module links.
+
 ## Model: range Recommends
 
 ```console
@@ -122,8 +154,7 @@ Requires: kernel-uname-r < 1.1-0.x86_64
 The kernel range is a weak `Recommends`, not a hard `Requires`.
 
 ```spec
-Recommends: kernel-uname-r >= 1.0-40.x86_64
-Recommends: kernel-uname-r < 1.1-0.x86_64
+Recommends: (kernel-uname-r >= 1.0-40.x86_64 with kernel-uname-r < 1.1-0.x86_64)
 ```
 
 ### Pros
@@ -152,8 +183,7 @@ The Partner module has a hard supported-kernel range and weakly recommends the
 exact kernel release it was built for.
 
 ```spec
-Requires: kernel-uname-r >= 1.0-40.x86_64
-Requires: kernel-uname-r < 1.1-0.x86_64
+Requires: (kernel-uname-r >= 1.0-40.x86_64 with kernel-uname-r < 1.1-0.x86_64)
 Recommends: kernel-uname-r = 1.0-40.x86_64
 ```
 

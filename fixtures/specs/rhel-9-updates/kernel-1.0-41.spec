@@ -19,6 +19,7 @@ Fixture kernel core package for 1.0-41.
 
 %package modules
 Summary:        Fixture kernel modules 1.0-41
+Provides:       kernel-modules-uname-r = 1.0-41.x86_64
 Requires:       kernel-core = %{version}-%{release}
 
 %description modules
