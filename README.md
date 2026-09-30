@@ -229,6 +229,84 @@ Recommends: kernel-uname-r = 1.0-40.x86_64
   failure. Both scenarios intentionally fail to demonstrate it.
 - It still does not block an unsupported next-family kernel
 
+## Model: one shared policy plus module packages
+
+```console
+./container-test run dnf/kernel_policy.feature
+```
+
+### Packages
+
+There are only two kinds of partner package:
+
+| Package | Job |
+| --- | --- |
+| `partner-kernel-policy` | Lists allowed kernels and selects the module required for each installed kernel. |
+| `partner-kmod-1.0-39`, `partner-kmod-1.0-40`, `partner-kmod-1.0-41` | Contain modules built for the named kernel; several can remain installed for recovery. |
+
+For example, a machine with kernels .39 and .41 using the .40 module needs three
+partner packages: the policy, the .39 module, and the .40 module.
+Each module requires the shared policy without pinning its version.
+
+### Policy rules
+
+For each known kernel, the policy says which partner module is required.
+Revision 2 includes these rules for .41:
+
+```spec
+Requires: (partner-kmod-1.0-40 = 1.0-1 if kernel-uname-r = 1.0-41.x86_64)
+Recommends: (kernel-modules-uname-r = 1.0-41.x86_64 if kernel-uname-r = 1.0-41.x86_64)
+Conflicts: kernel-uname-r >= 1.0-42.x86_64
+```
+
+This means: if .41 is installed, require the .40 partner module. The ceiling
+blocks unapproved newer kernels even when an older supported kernel remains
+installed. Rules for .39 and .40 preserve their partner-module coverage.
+The recommendation can add matching kernel modules when weak dependencies are
+enabled; it does not make those packages mandatory.
+
+When the native .41 module arrives, revision 3 changes the first rule to require
+`partner-kmod-1.0-41 = 1.0-1`. The rules for .39 and .40 stay in place. A normal
+upgrade installs the new policy and native module together. Policy revisions
+1, 2, and 3 are independent of kernel release numbers.
+
+### Publication stages
+
+| Repository | Policy revision | Approved kernel-to-module mapping | New module package |
+| --- | --- | --- | --- |
+| `partner-kernel-policy-base` | 1 | .39 uses .39 | `partner-kmod-1.0-39` |
+| `partner-kernel-policy-updates` | 2 | .39 uses .39; .40 and .41 use .40 | `partner-kmod-1.0-40` |
+| `partner-kernel-policy-native` | 3 | .39 uses .39; .40 uses .40; .41 uses .41 | `partner-kmod-1.0-41` |
+
+The feature enables these repositories progressively and keeps earlier ones
+available for recovery packages. Production can publish successive updates in
+one repository. The existing RHEL fixture repositories provide the kernels,
+and the fixture build script discovers these specs automatically.
+
+### Scenarios and limits
+
+The ten scenarios cover weak dependencies enabled and disabled, policy
+installation through a module dependency,
+recovery-pair retention, direct core installation, stale policy, missing modules,
+unsupported kernels with both `best` settings, removal of a build kernel while
+its module is still needed, and migration to the native .41 module.
+
+The policy is explicitly installed in most scenarios so it remains selected
+when individual kernels are removed. A production client package could require
+it. Conditional rules alone do not install an initial kernel; fresh installation
+must request both a kernel and the policy, for example `install kernel
+partner-kernel-policy`.
+
+Kernel component selection remains the responsibility of the kernel packages
+and the caller. In these fixtures, installing the `kernel` meta package pulls
+matching core and modules. The partner module does not pull in its build kernel,
+so using the .40 module on .41 does not introduce an extra .40 core. Explicitly
+installing only `kernel-core` remains possible; the policy adds the approved
+partner module but does not promise a complete or bootable kernel installation.
+The recommendation helps with core-only installs when weak dependencies are
+enabled. The scenarios also document that disabling weak dependencies permits
+cores without matching kernel-modules.
+
 ## Possible implementation: DNF kernel filtering plugin
 
 [dnf-plugin-kpatchfilter](https://github.com/m-blaha/dnf-plugin-kpatchfilter)
