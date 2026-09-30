@@ -140,8 +140,36 @@ Requires: (kernel-modules-uname-r >= 1.0-40.x86_64 with kernel-modules-uname-r <
 - An installed supported kernel set still satisfies the partner dependencies
   after DNF adds an unsupported `1.1` install-only kernel. That scenario
   intentionally fails; the new kernel could become the default boot entry.
-- Package dependencies do not establish that the `.40` module works on `.41`
-  or create the necessary weak-module links.
+
+## Model: kernel range Requires plus modules range Recommends
+
+```console
+./container-test run dnf/kernel_range_requires_modules_recommends.feature
+```
+
+### Approach
+
+The Partner module hard-requires a supported `kernel-uname-r` and weakly
+recommends `kernel-modules-uname-r` with the same bounds.
+
+```spec
+Requires: (kernel-uname-r >= 1.0-40.x86_64 with kernel-uname-r < 1.1-0.x86_64)
+Recommends: (kernel-modules-uname-r >= 1.0-40.x86_64 with kernel-modules-uname-r < 1.1-0.x86_64)
+```
+
+### Pros
+
+- A complete `.41` kernel satisfies both ranges without installing `.40`.
+- With weak dependencies enabled, DNF can pull modules when a Partner module
+  is installed on a system that lacks them.
+
+### Gaps
+
+- With `install_weak_deps=False`, a module-only installation pulls only a
+  supported core. The feature intentionally fails on this incomplete set.
+- An already installed supported pair satisfies both lines while DNF adds an
+  unsupported `1.1` install-only kernel. That feature scenario intentionally
+  fails; package dependencies do not police the default boot kernel.
 
 ## Model: range Recommends
 
