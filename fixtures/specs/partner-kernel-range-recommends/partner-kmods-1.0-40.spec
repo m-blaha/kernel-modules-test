@@ -4,8 +4,7 @@ Release:        40
 Summary:        Partner module for kernel 1.0-40 through 1.0
 License:        MIT
 BuildArch:      x86_64
-Recommends:     kernel-uname-r >= 1.0-40.x86_64
-Recommends:     kernel-uname-r < 1.1-0.x86_64
+Recommends:     (kernel-uname-r >= 1.0-40.x86_64 with kernel-uname-r < 1.1-0.x86_64)
 
 %description
 Fixture Partner module built for kernel 1.0-40 and weakly associated with the 1.0 kernel family.
