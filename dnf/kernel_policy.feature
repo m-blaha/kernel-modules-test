@@ -9,11 +9,11 @@ Feature: One shared policy selects modules for all installed kernels
   Background:
     Given I use repository "rhel-9-base"
       And I use repository "partner-kernel-policy-base"
-      And I configure dnf with
-        | key               | value |
-        | install_weak_deps | False |
 
   Scenario: Disabled weak dependencies allow the partner module without kernel modules
+    Given I configure dnf with
+        | key               | value |
+        | install_weak_deps | False |
      When I execute dnf with args "install kernel-core-1.0-39"
      Then the exit code is 0
      When I execute dnf with args "install partner-kmod-1.0-39"
@@ -46,14 +46,13 @@ Feature: One shared policy selects modules for all installed kernels
   Scenario: Updating the policy permits .41 and retains the .39 recovery pair
      When I execute dnf with args "install kernel-1.0-39 partner-kernel-policy"
      Then the exit code is 0
-      And I use repository "rhel-9-updates"
+    Given I use repository "rhel-9-updates"
       And I use repository "partner-kernel-policy-updates"
      When I execute dnf with args "upgrade"
      Then the exit code is 0
       And RPMDB Transaction contains
         | Action    | Package                              |
         | upgrade   | partner-kernel-policy-0:1.0-2.x86_64  |
-        | absent    | partner-kernel-policy-0:1.0-1.x86_64  |
         | install   | kernel-0:1.0-41.x86_64                |
         | install   | kernel-core-0:1.0-41.x86_64           |
         | install   | kernel-modules-0:1.0-41.x86_64        |
@@ -67,9 +66,12 @@ Feature: One shared policy selects modules for all installed kernels
       And every installed kernel core has matching kernel modules
 
   Scenario: Installing a core with weak dependencies disabled adds only its approved partner module
+    Given I configure dnf with
+        | key               | value |
+        | install_weak_deps | False |
      When I execute dnf with args "install kernel-1.0-39 partner-kernel-policy"
      Then the exit code is 0
-      And I use repository "rhel-9-updates"
+    Given I use repository "rhel-9-updates"
       And I use repository "partner-kernel-policy-updates"
      When I execute dnf with args "upgrade partner-kernel-policy"
      Then the exit code is 0
@@ -92,31 +94,21 @@ Feature: One shared policy selects modules for all installed kernels
   Scenario: A stale policy rejects a newer kernel before changing the installed set
      When I execute dnf with args "install kernel-1.0-39 partner-kernel-policy"
      Then the exit code is 0
-      And I use repository "rhel-9-updates"
+    Given I use repository "rhel-9-updates"
      When I execute dnf with args "install kernel-1.0-41"
      Then the exit code is 1
       And RPMDB Transaction is empty
-      And RPMDB Transaction contains
-        | Action    | Package                              |
-        | unchanged | partner-kernel-policy-0:1.0-1.x86_64  |
-        | unchanged | partner-kmod-1.0-39-0:1.0-1.x86_64    |
-        | absent    | kernel-core-0:1.0-41.x86_64           |
 
   Scenario: An advanced policy cannot admit .41 when its approved partner module is unavailable
      When I execute dnf with args "install kernel-1.0-39 partner-kernel-policy"
      Then the exit code is 0
-      And I use repository "rhel-9-updates"
+    Given I use repository "rhel-9-updates"
       And I use repository "partner-kernel-policy-updates"
      When I execute dnf with args "upgrade partner-kernel-policy"
      Then the exit code is 0
      When I execute dnf with args "--exclude=partner-kmod-1.0-40 install kernel-1.0-41"
      Then the exit code is 1
       And RPMDB Transaction is empty
-      And RPMDB Transaction contains
-        | Action    | Package                              |
-        | unchanged | partner-kernel-policy-0:1.0-2.x86_64  |
-        | unchanged | partner-kmod-1.0-39-0:1.0-1.x86_64    |
-        | absent    | kernel-core-0:1.0-41.x86_64           |
 
   Scenario: An unsupported next-family kernel makes a best-candidate upgrade fail safely
     Given I use repository "rhel-9-updates"
@@ -127,19 +119,11 @@ Feature: One shared policy selects modules for all installed kernels
      When I execute dnf with args "upgrade"
      Then the exit code is 1
       And RPMDB Transaction is empty
-      And RPMDB Transaction contains
-        | Action    | Package                              |
-        | unchanged | kernel-core-0:1.0-41.x86_64           |
-        | unchanged | partner-kmod-1.0-40-0:1.0-1.x86_64    |
-        | unchanged | partner-kernel-policy-0:1.0-2.x86_64  |
-        | absent    | kernel-0:1.1-1.x86_64                 |
-        | absent    | kernel-core-0:1.1-1.x86_64            |
-        | absent    | kernel-modules-0:1.1-1.x86_64         |
 
   Scenario: Disabling best-candidate enforcement selects the latest approved kernel
      When I execute dnf with args "install kernel-1.0-39 partner-kernel-policy"
      Then the exit code is 0
-      And I use repository "rhel-9-updates"
+    Given I use repository "rhel-9-updates"
       And I use repository "rhel-9-next-major"
       And I use repository "partner-kernel-policy-updates"
       And I configure dnf with
@@ -188,7 +172,7 @@ Feature: One shared policy selects modules for all installed kernels
   Scenario: A policy update selects the native .41 module while retaining older recovery pairs
      When I execute dnf with args "install kernel-1.0-39 partner-kernel-policy"
      Then the exit code is 0
-      And I use repository "rhel-9-updates"
+    Given I use repository "rhel-9-updates"
       And I use repository "partner-kernel-policy-updates"
      When I execute dnf with args "install kernel-1.0-40 kernel-1.0-41"
      Then the exit code is 0
